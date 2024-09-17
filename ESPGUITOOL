@@ -1,0 +1,201 @@
+using System.Collections.ObjectModel;
+using System.IO.Ports;
+using System.Management;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using System.Text;
+
+namespace ESP_Flash
+{
+    public partial class Form1 : Form
+    {
+        private List<String> portnames = new List<String>();
+        private List<string> extensions = new List<string>();
+        private string filePath;
+        private string filename;
+        private string p_FileToFlash;
+        private string p_COMToFlash;
+        private string p_espToolForFlash;
+
+        public Form1()
+        {
+            InitializeComponent();
+            allPorts();
+        }
+
+        private List<string> scanCOMPorts()
+        {
+            using (var searchPort = new ManagementObjectSearcher("SELECT * FROM " + "Win32_PnPEntity WHERE Caption like '%(COM%'"))
+            {
+                String[] ports = SerialPort.GetPortNames();
+
+                var port = searchPort.Get().Cast<ManagementBaseObject>().ToList().Select(p => p["Caption"].ToString());
+
+                List<String> portList = ports.Select(n => n + " - " + port.FirstOrDefault(s => s.Contains(n))).ToList();
+
+                return portList;
+            }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        private void allPorts()
+        {
+            portnames = scanCOMPorts();
+            foreach (string port in portnames)
+            {
+                comPorts.Items.Add(port);
+            }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void scanBtn_Click(object sender, EventArgs e)
+        {
+            allPorts();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        private void flash_Files()
+        {
+            FolderBrowserDialog folderDlg = new FolderBrowserDialog();
+            DialogResult result = folderDlg.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                filePath = folderDlg.SelectedPath;
+                Environment.SpecialFolder root = folderDlg.RootFolder;
+            }
+
+            List<string> extensions = new List<string> { "BIN" };
+            string[] files_ = GetFilesWithExtensions(filePath, extensions);
+            filesToFlash.Items.AddRange(files_);
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        private void esp_tool()
+        {
+            FolderBrowserDialog folderDlg = new FolderBrowserDialog();
+            DialogResult result = folderDlg.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                filePath = folderDlg.SelectedPath;
+                Environment.SpecialFolder root = folderDlg.RootFolder;
+            }
+
+            List<string> extensions = new List<string> { "EXE" };
+            string[] files_ = GetFilesWithExtensions(filePath, extensions);
+            espToolsFiles.Items.AddRange(files_);
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path"></param>
+        /// <param name="extensions"></param>
+        /// <returns></returns>
+        private string[] GetFilesWithExtensions(string path, List<string> extensions)
+        {
+            string[] allFilesInFolder = Directory.GetFiles(path);
+            return allFilesInFolder.Where(f => extensions.Contains(f.ToUpper().Split('.').Last())).ToArray();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void searchFilesBtn_Click(object sender, EventArgs e)
+        {
+            flash_Files();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void filesToFlash_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string strPath = filesToFlash.SelectedItem.ToString();
+            filename = Path.GetFileName(strPath);
+            p_FileToFlash = strPath;
+            theFlashBin.Text = filename;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void comPorts_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            theCOMPort.Text = comPorts.SelectedItem.ToString();
+            p_COMToFlash = theCOMPort.Text;
+            string[] words = p_COMToFlash.Split(' ');
+            for (int i = 0; i < words.Length; i++)
+            {
+                if (i == 0)
+                {
+                    theCOMPort.Text = words[i];
+                }
+            }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void esptoolBtn_Click(object sender, EventArgs e)
+        {
+            esp_tool();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void espToolsFiles_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string strPath = espToolsFiles.SelectedItem.ToString();
+            filename = Path.GetFileName(strPath);
+            p_espToolForFlash = strPath;
+            esptoolFile.Text = filename;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="script"></param>
+        /// <returns></returns>
+        private string runPowershell(string script)
+        {
+            Runspace runScript = RunspaceFactory.CreateRunspace();
+            runScript.Open();
+            Pipeline pipeline = runScript.CreatePipeline();
+            pipeline.Commands.AddScript(script);
+            pipeline.Commands.Add("Out-String");
+            Collection<PSObject> results = pipeline.Invoke();
+            runScript.Close();
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (PSObject obj in results) stringBuilder.AppendLine(obj.ToString());
+            return stringBuilder.ToString();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void FlashBtn_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                pShellWindow.Clear();
+                theProgress.Text = "PLEASE WAIT. . . ERASING ESP FLASH MEMORY!";
+                pShellWindow.Text = runPowershell(p_espToolForFlash + " --chip esp8266 --port " + theCOMPort.Text + " erase_flash");
+                theProgress.Text = "PLEASE WAIT. . . FLASHING " + filename;
+                pShellWindow.Text = runPowershell(p_espToolForFlash + " --chip esp8266 --port " + theCOMPort.Text + " --baud 115200 write_flash 0x00000 " + p_FileToFlash);
+                theProgress.Text = "FLASHING COMPLETE!";
+            }
+            catch { MessageBox.Show("Unable to Flash the connected ESP device", "Flashing ESP Failed", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        }
+    }
+}

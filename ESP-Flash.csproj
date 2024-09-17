@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows8.0</TargetFramework>
+    <RootNamespace>ESP_Flash</RootNamespace>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
+    <StartupObject>ESP_Flash.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="ESPGUITOOL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="ESPGUITOOL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MGSoftSystem.Management.Automation" Version="1.0.0" />
+    <PackageReference Include="Microsoft.PowerShell.Commands.Diagnostics" Version="7.4.5" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.5" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+    <PackageReference Include="System.Management.Automation" Version="7.4.5" />
+  </ItemGroup>
+
+</Project>
